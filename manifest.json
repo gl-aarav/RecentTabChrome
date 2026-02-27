@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Recent Tab Switcher",
+  "version": "1.0",
+  "description": "Switch to your last active tab with a keyboard shortcut (Alt+Q / Option+Q)",
+  "permissions": ["tabs"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "switch-to-last-tab": {
+      "suggested_key": {
+        "default": "Alt+Q",
+        "mac": "MacCtrl+Q"
+      },
+      "description": "Switch to last active tab"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

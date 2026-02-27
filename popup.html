@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recent Tab Switcher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 280px;
+            font-family: -apple-system, system-ui, sans-serif;
+            background: #1b2a2e;
+            color: #c5d4d7;
+        }
+
+        .container {
+            padding: 16px 18px 14px;
+        }
+
+        .title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e2eced;
+            margin-bottom: 14px;
+            letter-spacing: -0.01em;
+        }
+
+        .divider {
+            height: 1px;
+            background: #263c40;
+            margin: 10px 0;
+        }
+
+        .stat {
+            font-size: 11px;
+            color: #5a8387;
+            margin-bottom: 10px;
+        }
+
+        .stat strong {
+            color: #7ec8cb;
+            font-weight: 600;
+        }
+
+        .footer {
+            font-size: 11px;
+            color: #4a6d71;
+            line-height: 1.4;
+        }
+
+        .footer a {
+            color: #5bb8bc;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="title">Recent Tab Switcher</div>
+
+        <div class="divider"></div>
+
+        <div class="stat"><strong id="tabCount">0</strong> tabs tracked</div>
+
+        <div class="footer">
+            Change shortcut in <a href="#" id="shortcutLink">extension settings</a>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
