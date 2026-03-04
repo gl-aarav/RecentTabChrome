@@ -33,7 +33,13 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
 
 chrome.tabs.onCreated.addListener(async (tab) => {
     if (!tabHistory.includes(tab.id)) {
-        tabHistory.unshift(tab.id);
+        if (tab.active || tabHistory.length === 0) {
+            tabHistory.unshift(tab.id);
+        } else {
+            // Insert at index 1 so the current active tab remains at index 0,
+            // making the newly created background tab the "most recent previous" tab.
+            tabHistory.splice(1, 0, tab.id);
+        }
         await saveHistory();
     }
 });
