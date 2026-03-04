@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Recent Tab Switcher",
-  "version": "1.0",
-  "description": "Switch to your last active tab with a keyboard shortcut (Alt+Q / Option+Q)",
-  "permissions": ["tabs"],
+  "version": "2.0",
+  "description": "Switch between recent tabs with a visual switcher popup (Alt+Q / Ctrl+Q)",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "activeTab"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -13,7 +18,7 @@
         "default": "Alt+Q",
         "mac": "MacCtrl+Q"
       },
-      "description": "Switch to last active tab"
+      "description": "Open tab switcher"
     }
   },
   "icons": {
