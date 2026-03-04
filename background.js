@@ -1,43 +1,30 @@
 // ── Persistent Tab History ──────────────────────────────────────────
 let tabHistory = [];
-let switcherWindowId = null;
-let switcherTabId = null;
 
-// Persist history to chrome.storage.session so it survives service worker restarts
 async function saveHistory() {
     await chrome.storage.session.set({ tabHistory });
 }
 
-// Load history from storage and reconcile with actual open tabs
 async function loadHistory() {
     try {
         const data = await chrome.storage.session.get('tabHistory');
-        if (data.tabHistory) {
-            tabHistory = data.tabHistory;
-        }
+        if (data.tabHistory) tabHistory = data.tabHistory;
     } catch { /* first run */ }
 
-    // Validate: remove closed tabs, add any untracked tabs
     const allTabs = await chrome.tabs.query({});
     const validIds = new Set(allTabs.map(t => t.id));
     tabHistory = tabHistory.filter(id => validIds.has(id));
-
     for (const tab of allTabs) {
-        if (!tabHistory.includes(tab.id)) {
-            tabHistory.push(tab.id);
-        }
+        if (!tabHistory.includes(tab.id)) tabHistory.push(tab.id);
     }
     await saveHistory();
 }
 
-// Initialize on service worker start
 loadHistory();
 
 // ── Tab Event Listeners ────────────────────────────────────────────
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    const { tabId } = activeInfo;
-    if (tabId === switcherTabId) return; // ignore switcher window
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
     tabHistory = tabHistory.filter(id => id !== tabId);
     tabHistory.unshift(tabId);
     if (tabHistory.length > 200) tabHistory = tabHistory.slice(0, 200);
@@ -53,16 +40,11 @@ chrome.tabs.onCreated.addListener(async (tab) => {
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
     tabHistory = tabHistory.filter(id => id !== tabId);
-    if (tabId === switcherTabId) {
-        switcherTabId = null;
-        switcherWindowId = null;
-    }
     await saveHistory();
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
-    // Ensure updated tabs are in the history
-    if (!tabHistory.includes(tabId) && tabId !== switcherTabId) {
+chrome.tabs.onUpdated.addListener(async (tabId) => {
+    if (!tabHistory.includes(tabId)) {
         tabHistory.push(tabId);
         await saveHistory();
     }
@@ -70,75 +52,112 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
 
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
     if (windowId === chrome.windows.WINDOW_ID_NONE) return;
-    if (windowId === switcherWindowId) return;
-
     const tabs = await chrome.tabs.query({ active: true, windowId });
     if (tabs.length > 0) {
         const tabId = tabs[0].id;
-        if (tabId === switcherTabId) return;
         tabHistory = tabHistory.filter(id => id !== tabId);
         tabHistory.unshift(tabId);
         await saveHistory();
     }
 });
 
-chrome.windows.onRemoved.addListener((windowId) => {
-    if (windowId === switcherWindowId) {
-        switcherWindowId = null;
-        switcherTabId = null;
-    }
-});
+// ── Switcher State ─────────────────────────────────────────────────
 
-// ── Command: Open / Cycle Switcher ─────────────────────────────────
+let overlayTabId = null;
+let overlayOpen = false;
+let lastCommandTime = 0;
 
 chrome.commands.onCommand.addListener(async (command) => {
-    if (command === 'switch-to-last-tab') {
-        await handleSwitchCommand();
+    if (command !== 'switch-to-last-tab') return;
+
+    const now = Date.now();
+
+    if (overlayOpen && overlayTabId) {
+        // Already open → cycle to next tab
+        // To prevent continuous cycling when the shortcut is held down,
+        // we check the time since the last command. An OS key-repeat
+        // usually fires every ~30-50ms. By updating lastCommandTime every
+        // time and checking if the gap is small, we completely block key-repeats!
+        const diff = now - lastCommandTime;
+        lastCommandTime = now;
+
+        if (diff < 200) return; // Drop OS key-repeats
+
+        try {
+            await chrome.tabs.sendMessage(overlayTabId, { type: 'rts_cycleNext' });
+        } catch { /* overlay gone */ }
+        return;
     }
+
+    lastCommandTime = now;
+
+    // Immediately open the overlay (content script handles quick-tap logic)
+    await openOverlay();
 });
 
-async function handleSwitchCommand() {
-    // If switcher is already open, tell it to cycle forward
-    if (switcherWindowId !== null) {
-        try {
-            await chrome.windows.get(switcherWindowId);
-            chrome.runtime.sendMessage({ type: 'cycleNext' });
-            return;
-        } catch {
-            switcherWindowId = null;
-            switcherTabId = null;
-        }
-    }
-
-    // Open the switcher popup window centered on the current window
-    const currentWindow = await chrome.windows.getCurrent();
-    const width = 720;
-    const height = 165;
-    const left = Math.round(currentWindow.left + (currentWindow.width - width) / 2);
-    const top = Math.round(currentWindow.top + (currentWindow.height - height) / 2);
-
-    const win = await chrome.windows.create({
-        url: 'switcher.html',
-        type: 'popup',
-        width,
-        height,
-        left,
-        top,
-        focused: true
-    });
-
-    switcherWindowId = win.id;
-    if (win.tabs && win.tabs.length > 0) {
-        switcherTabId = win.tabs[0].id;
-        // Remove switcher tab from history
-        tabHistory = tabHistory.filter(id => id !== switcherTabId);
+async function switchToLastTab() {
+    if (tabHistory.length < 2) return;
+    const lastTabId = tabHistory[1];
+    try {
+        const tab = await chrome.tabs.get(lastTabId);
+        await chrome.tabs.update(lastTabId, { active: true });
+        if (tab.windowId) await chrome.windows.update(tab.windowId, { focused: true });
+    } catch {
+        tabHistory = tabHistory.filter(id => id !== lastTabId);
         await saveHistory();
+        if (tabHistory.length >= 2) await switchToLastTab();
     }
+}
+
+async function openOverlay() {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab) return;
+
+    overlayTabId = activeTab.id;
+    overlayOpen = true;
+    const tabData = await getTabHistoryDetails();
+    // Pre-select index 1 (the last active tab, since 0 is the current tab)
+    const selectedIndex = tabData.length > 1 ? 1 : 0;
+
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId: overlayTabId },
+            files: ['switcher-content.js']
+        });
+        await chrome.tabs.sendMessage(overlayTabId, {
+            type: 'rts_initOverlay',
+            tabs: tabData,
+            selectedIndex
+        });
+    } catch {
+        // Failed to inject (e.g., chrome:// URL)
+        // Fallback: just instantly switch to the last tab!
+        overlayTabId = null;
+        overlayOpen = false;
+        await switchToLastTab();
+    }
+}
+
+function resetState() {
+    overlayTabId = null;
+    overlayOpen = false;
 }
 
 // ── Message Handler ────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'switchFromOverlay') {
+        switchToTab(message.tabId).then(() => {
+            resetState();
+            sendResponse({ success: true });
+        });
+        return true;
+    }
+    if (message.type === 'overlayCancelled') {
+        resetState();
+        sendResponse({ success: true });
+        return true;
+    }
     if (message.type === 'getTabHistory') {
         getTabHistoryDetails().then(tabs => sendResponse({ tabs }));
         return true;
@@ -151,21 +170,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         switchToTab(message.tabId).then(() => sendResponse({ success: true }));
         return true;
     }
-    if (message.type === 'closeSwitcher') {
-        if (switcherWindowId) {
-            chrome.windows.remove(switcherWindowId).catch(() => { });
-            switcherWindowId = null;
-            switcherTabId = null;
-        }
-        sendResponse({ success: true });
-        return true;
-    }
 });
 
 async function getTabHistoryDetails() {
     const results = [];
     for (const tabId of tabHistory) {
-        if (tabId === switcherTabId) continue;
         try {
             const tab = await chrome.tabs.get(tabId);
             results.push({
@@ -175,9 +184,7 @@ async function getTabHistoryDetails() {
                 favIconUrl: tab.favIconUrl || '',
                 windowId: tab.windowId
             });
-        } catch {
-            // Tab no longer exists, will be cleaned up
-        }
+        } catch { /* tab gone */ }
     }
     return results;
 }
@@ -186,9 +193,7 @@ async function switchToTab(tabId) {
     try {
         const tab = await chrome.tabs.get(tabId);
         await chrome.tabs.update(tabId, { active: true });
-        if (tab.windowId) {
-            await chrome.windows.update(tab.windowId, { focused: true });
-        }
+        if (tab.windowId) await chrome.windows.update(tab.windowId, { focused: true });
     } catch {
         tabHistory = tabHistory.filter(id => id !== tabId);
         await saveHistory();
