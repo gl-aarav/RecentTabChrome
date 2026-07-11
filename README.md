@@ -1,6 +1,10 @@
 # Recent Tab Switcher
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
+</p>
 
 A lightweight Chrome extension that makes switching between recently-used tabs fast and visual. Press a single keyboard shortcut to open a quick-switch overlay, then press it again to cycle back through your tab history. It works just like `Alt+Tab` for browser tabs.
 
@@ -78,4 +82,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ---
 
-Made with ❤️ by [Aarav Goyal](https://github.com/gl-aarav)
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/gl-aarav">Aarav Goyal</a>
+</p>
