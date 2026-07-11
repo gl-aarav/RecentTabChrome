@@ -1,6 +1,12 @@
 # Recent Tab Switcher
 
-A lightweight Chrome extension that makes switching between recently-used tabs fast and visual. Press a single keyboard shortcut to see a quick-switch overlay, then press it again to cycle back through your tab history.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A lightweight Chrome extension that makes switching between recently-used tabs fast and visual. Press a single keyboard shortcut to open a quick-switch overlay, then press it again to cycle back through your tab history. It works just like `Alt+Tab` for browser tabs.
+
+## Why use this?
+
+If you keep many tabs open and constantly jump between a few of them, browser tab switching can feel slow. Recent Tab Switcher keeps a history of the tabs you have actually used and lets you flip back instantly, without hunting through the tab bar.
 
 ## Features
 
@@ -9,6 +15,7 @@ A lightweight Chrome extension that makes switching between recently-used tabs f
 - **Popup view** — click the extension icon to see a ranked list of recent tabs.
 - **Smart ordering** — background tabs opened from links are placed right after your current tab, so Alt+Tab-style switching feels natural.
 - **No remote servers** — all tab history is stored locally in your browser.
+- **Privacy first** — no analytics, no tracking, and no data ever leaves your device.
 
 ## Install
 
@@ -60,9 +67,15 @@ No data is sent to any server.
 This is a Manifest V3 Chrome extension. There are no build steps required.
 
 1. Clone the repository.
-2. Load the extension folder as an unpacked extension in Chrome.
-3. Make changes and click the refresh icon in `chrome://extensions/`.
+2. Open Chrome and go to `chrome://extensions/`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select the project folder.
+5. Make changes and click the refresh icon in `chrome://extensions/`.
 
 ## License
 
-MIT
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+Made with ❤️ by [Aarav Goyal](https://github.com/gl-aarav)
